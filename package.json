@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Express + MySQL API running on Bun with separate local/production envs.",
   "private": true,
-  "type": "module",
   "main": "index.js",
   "scripts": {
     "dev": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun --watch index.js",
