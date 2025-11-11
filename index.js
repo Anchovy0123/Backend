@@ -8,7 +8,7 @@ const app = express();
 const jwt = require("jsonwebtoken");
 // Backward-compat: if SECRET_KEY is unset, fall back to JWT_SECRET
 process.env.SECRET_KEY = process.env.SECRET_KEY || process.env.JWT_SECRET;
-const SECRET_KEY = process.env.JWT_SECRET; // ควรเก็บใน .env
+const SECRET_KEY = process.env.JWT_SECRET;
 const cors = require("cors");
 app.use(cors());
 app.use(express.json());
@@ -16,7 +16,7 @@ app.use(express.json());
 // ใช้ค่าจาก .env
 const db = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT, //เพิ่ม port
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
