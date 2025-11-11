@@ -80,35 +80,67 @@ app.get("/users/:id", verifyToken, async (req, res) => {
     res.status(500).json({ error: "Query failed" });
   }
 });
-
 // POST: เข้าสู่ระบบ (Login)
 app.post("/login", async (req, res) => {
-  const { username, password } = req.body; // ใช้ fullname หรืออาจเปลี่ยนเป็น username ตามโครงสร้างจริง
-
   try {
+    // 1) ป้องกัน body ว่าง/ผิดรูป
+    if (!req.body || typeof req.body !== "object") {
+      return res.status(400).json({ error: "Invalid request body" });
+    }
+
+    const username = String(req.body.username || "").trim();
+    const password = String(req.body.password || "").trim();
+
+    if (!username || !password) {
+      return res.status(400).json({ error: "username/password is required" });
+    }
+
+    // 2) หา user
     const [rows] = await db.query(
-      "SELECT * FROM tbl_users WHERE username = ?",
+      "SELECT * FROM tbl_users WHERE username = ? LIMIT 1",
       [username]
     );
-    if (rows.length === 0)
+    if (rows.length === 0) {
       return res.status(401).json({ error: "User not found" });
-
+    }
     const user = rows[0];
 
-    // ตรวจสอบรหัสผ่าน
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: "Invalid password" });
+    // 3) ตรวจรหัสผ่าน
+    // ถ้ารหัสใน DB เป็น bcrypt (ขึ้นต้นด้วย $2)
+    let passOK = false;
+    if (typeof user.password === "string" && user.password.startsWith("$2")) {
+      passOK = await bcrypt.compare(password, user.password);
+    } else {
+      // ยังเป็น plain-text → เทียบตรงๆ
+      passOK = password === String(user.password);
 
-    // สร้าง JWT token
+      // และถ้าเทียบผ่าน ให้ upgrade เป็น bcrypt โดยอัตโนมัติ (migrate ทันที)
+      if (passOK) {
+        const newHash = await bcrypt.hash(password, 10);
+        await db.query("UPDATE tbl_users SET password = ?, updated_at = NOW() WHERE id = ?", [
+          newHash,
+          user.id,
+        ]);
+        user.password = newHash; // sync ในหน่วยความจำ
+      }
+    }
+
+    if (!passOK) {
+      return res.status(401).json({ error: "Invalid password" });
+    }
+
+    // 4) สร้าง JWT (อย่าลืมตั้งค่า SECRET_KEY ใน .env)
     const token = jwt.sign(
-      { id: user.id, fullname: user.fullname, lastname: user.lastname },
-      SECRET_KEY,
-      { expiresIn: "1h" } // อายุ token 1 ชั่วโมง
+      { id: user.id, fullname: user.fullname, lastname: user.lastname, status: user.status },
+      process.env.SECRET_KEY, // ใช้จาก .env
+      { expiresIn: "1h" }
     );
 
-    res.json({ message: "Login successful", token });
+    // 5) ตอบกลับ (อย่าส่ง password กลับ)
+    const { password: _omit, ...safeUser } = user;
+    res.json({ message: "Login successful", token, user: safeUser });
   } catch (err) {
-    console.error(err);
+    console.error("Login error:", err);
     res.status(500).json({ error: "Login failed" });
   }
 });
