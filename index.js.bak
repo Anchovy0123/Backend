@@ -38,17 +38,6 @@ app.post("/users", async (req, res) => {
   const { firstname, fullname, lastname, username, password } = req.body;
 
   try {
-    // Prevent duplicate usernames
-    if (username) {
-      const [dupes] = await db.query(
-        "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
-        [username]
-      );
-      if (dupes.length > 0) {
-        return res.status(409).json({ error: "Username already exists" });
-      }
-    }
-
     if (!password)
       return res.status(400).json({ error: "Password is required" });
 
@@ -110,15 +99,14 @@ app.post("/login", async (req, res) => {
     }
 
     // 2) หา user
-    // If there are duplicate usernames, prefer the most recently added
     const [rows] = await db.query(
-      "SELECT * FROM tbl_users WHERE username = ? ORDER BY id DESC",
+      "SELECT * FROM tbl_users WHERE username = ? LIMIT 1",
       [username]
     );
     if (rows.length === 0) {
       return res.status(401).json({ error: "User not found" });
     }
-    let user = rows[0];
+    const user = rows[0];
 
     // 3) ตรวจรหัสผ่าน
     // ถ้ารหัสใน DB เป็น bcrypt (ขึ้นต้นด้วย $2)
@@ -141,28 +129,7 @@ app.post("/login", async (req, res) => {
     }
 
     if (!passOK) {
-      // Fallback: if duplicates exist, try other rows for this username
-      for (let i = 1; i < rows.length && !passOK; i++) {
-        const candidate = rows[i];
-        if (typeof candidate.password === "string" && candidate.password.startsWith("$2")) {
-          passOK = await bcrypt.compare(password, candidate.password);
-        } else {
-          passOK = password === String(candidate.password);
-          if (passOK) {
-            const newHash = await bcrypt.hash(password, 10);
-            await db.query("UPDATE tbl_users SET password = ?, updated_at = NOW() WHERE id = ?", [newHash, candidate.id]);
-            candidate.password = newHash;
-          }
-        }
-        if (passOK) {
-          user = candidate;
-          break;
-        }
-      }
-
-      if (!passOK) {
-        return res.status(401).json({ error: "Invalid password" });
-      }
+      return res.status(401).json({ error: "Invalid password" });
     }
 
     // 4) สร้าง JWT (อย่าลืมตั้งค่า SECRET_KEY ใน .env)
