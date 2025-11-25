@@ -252,6 +252,15 @@ app.delete("/users/:id", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Delete failed" });
   }
+  
+});
+// POST: Logout
+app.post("/logout", verifyToken, (req, res) => {
+  // ถ้าเป็น JWT แบบ stateless ปกติ เราไม่ต้องลบอะไรใน server
+  // เพราะ token มันหมดอายุเองตาม expiresIn ที่ตั้งไว้ (1h)
+  // แต่เราสามารถ log หรือจัดการ blacklist เพิ่มได้ ถ้าคุณอยากทำขั้น advance
+
+  res.json({ message: "Logged out" });
 });
 
 // เริ่มเซิร์ฟเวอร์
