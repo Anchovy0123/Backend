@@ -1,44 +1,26 @@
-// middleware/auth.js
 const jwt = require("jsonwebtoken");
 
-const SECRET_KEY = process.env.SECRET_KEY || process.env.JWT_SECRET;
+// อ่าน token จาก header: Authorization: Bearer <token>
+module.exports = function verifyToken(req, res, next) {
+  try {
+    const authHeader = String(req.headers.authorization || "");
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
 
-function verifyToken(req, res, next) {
-  // อ่าน header Authorization (รองรับทั้งตัวเล็ก/ใหญ่)
-  const authHeader = req.headers["authorization"] || req.headers["Authorization"];
-
-  // ไม่ส่ง header มาเลย → 401 Unauthorized
-  if (!authHeader) {
-    return res.status(401).json({
-      status: 401,
-      error: "Unauthorized",        // ❌ ไม่มี token
-    });
-  }
-
-  // รูปแบบต้องเป็น "Bearer <token>"
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0] !== "Bearer") {
-    return res.status(401).json({
-      status: 401,
-      error: "Unauthorized",        // ❌ รูปแบบ header ไม่ถูกต้อง
-    });
-  }
-
-  const token = parts[1];
-
-  // ตรวจสอบ token ด้วย jwt.verify()
-  jwt.verify(token, SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({
-        status: 401,
-        error: "Unauthorized",      // ❌ token หมดอายุ / ปลอม / ใช้ key ไม่ตรง
-      });
+    if (!token) {
+      return res.status(401).json({ error: "Missing token" });
     }
 
-    // ✅ ผ่าน: เก็บ payload จาก token ไว้ใช้ต่อใน req.user
-    req.user = decoded;
-    next();
-  });
-}
+    const SECRET_KEY = process.env.SECRET_KEY || process.env.JWT_SECRET;
+    if (!SECRET_KEY) {
+      return res.status(500).json({ error: "Server missing SECRET_KEY" });
+    }
 
-module.exports = verifyToken;
+    const decoded = jwt.verify(token, SECRET_KEY);
+    req.user = decoded; // { role, id ... } หรือ { customer_id ... }
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid token" });
+  }
+};

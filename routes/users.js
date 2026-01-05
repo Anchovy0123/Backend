@@ -1,29 +1,88 @@
-// =========================
-//  USERS (tbl_users)
-// =========================
+const express = require("express");
+const router = express.Router();
+const db = require("../config/db");
+const bcrypt = require("bcryptjs");
+const verifyToken = require("../middleware/auth");
 
-// CREATE user
-app.post("/users", async (req, res) => {
+/**
+ * @openapi
+ * tags:
+ *   - name: Users
+ *     description: Manage tbl_users
+ *
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         id: { type: integer, example: 1 }
+ *         firstname: { type: string, example: "John" }
+ *         fullname: { type: string, example: "John A." }
+ *         lastname: { type: string, example: "Doe" }
+ *         username: { type: string, example: "john" }
+ *         status: { type: string, example: "active" }
+ *         created_at: { type: string, example: "2026-01-05T10:00:00.000Z" }
+ *     CreateUserRequest:
+ *       type: object
+ *       required: [username, password]
+ *       properties:
+ *         firstname: { type: string }
+ *         fullname: { type: string }
+ *         lastname: { type: string }
+ *         username: { type: string, example: "john" }
+ *         password: { type: string, example: "1234" }
+ *     UpdateUserRequest:
+ *       type: object
+ *       properties:
+ *         firstname: { type: string }
+ *         fullname: { type: string }
+ *         lastname: { type: string }
+ *         username: { type: string }
+ *         password: { type: string }
+ *         status: { type: string }
+ *     ErrorResponse:
+ *       type: object
+ *       properties:
+ *         error: { type: string }
+ */
+
+/**
+ * @openapi
+ * /api/users:
+ *   post:
+ *     tags: [Users]
+ *     summary: Create a new user
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateUserRequest'
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Bad request
+ *       409:
+ *         description: Duplicate username
+ */
+router.post("/", async (req, res) => {
   const firstname = String(req.body?.firstname ?? "").trim();
-  const fullname  = String(req.body?.fullname ?? "").trim();
-  const lastname  = String(req.body?.lastname ?? "").trim();
-  const username  = String(req.body?.username ?? "").trim();
-  const password  = String(req.body?.password ?? "");
+  const fullname = String(req.body?.fullname ?? "").trim();
+  const lastname = String(req.body?.lastname ?? "").trim();
+  const username = String(req.body?.username ?? "").trim();
+  const password = String(req.body?.password ?? "");
 
   try {
     if (!username) return res.status(400).json({ error: "Username is required" });
     if (!password) return res.status(400).json({ error: "Password is required" });
 
-    // กัน username ซ้ำ
     const [dupes] = await db.query(
       "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
       [username]
     );
-    if (dupes.length > 0) {
-      return res.status(409).json({ error: "Username already exists" });
-    }
+    if (dupes.length > 0) return res.status(409).json({ error: "Username already exists" });
 
-    // bcrypt hash (แนะนำให้ tbl_users.password เป็น VARCHAR(255))
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await db.query(
@@ -40,21 +99,24 @@ app.post("/users", async (req, res) => {
       username,
     });
   } catch (err) {
-    console.error("POST /users error:", err);
-    return res.status(500).json({
-      error: "Insert failed",
-      code: err.code,
-      sqlMessage: err.sqlMessage,
-      hint:
-        err.code === "ER_DATA_TOO_LONG"
-          ? "ตาราง tbl_users ช่อง password สั้นไป → แก้เป็น VARCHAR(255)"
-          : undefined,
-    });
+    console.error("POST /api/users error:", err);
+    return res.status(500).json({ error: "Insert failed" });
   }
 });
 
-// GET users (protected)
-app.get("/users", verifyToken, async (req, res) => {
+/**
+ * @openapi
+ * /api/users:
+ *   get:
+ *     tags: [Users]
+ *     summary: List all users (protected)
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.get("/", verifyToken, async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT id, firstname, fullname, lastname, username, status, created_at
@@ -63,17 +125,33 @@ app.get("/users", verifyToken, async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error("GET /users error:", err);
-    res.status(500).json({ error: "Query failed", code: err.code, sqlMessage: err.sqlMessage });
+    console.error("GET /api/users error:", err);
+    res.status(500).json({ error: "Query failed" });
   }
 });
 
-// GET user by id (protected)
-app.get("/users/:id", verifyToken, async (req, res) => {
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   get:
+ *     tags: [Users]
+ *     summary: Get user by id (protected)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: OK
+ *       404:
+ *         description: Not found
+ */
+router.get("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: "Invalid id" });
-  }
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
 
   try {
     const [rows] = await db.query(
@@ -82,86 +160,48 @@ app.get("/users/:id", verifyToken, async (req, res) => {
        WHERE id = ? LIMIT 1`,
       [id]
     );
-
     if (rows.length === 0) return res.status(404).json({ message: "User not found" });
     res.json(rows[0]);
   } catch (err) {
-    console.error("GET /users/:id error:", err);
-    res.status(500).json({ error: "Query failed", code: err.code, sqlMessage: err.sqlMessage });
+    console.error("GET /api/users/:id error:", err);
+    res.status(500).json({ error: "Query failed" });
   }
 });
 
-// LOGIN users (simplify + safer)
-app.post("/login", async (req, res) => {
-  try {
-    const username = String(req.body?.username ?? "").trim();
-    const password = String(req.body?.password ?? "");
-
-    if (!username || !password) {
-      return res.status(400).json({ error: "username/password is required" });
-    }
-
-    const [rows] = await db.query(
-      `SELECT id, firstname, fullname, lastname, username, password, status
-       FROM tbl_users
-       WHERE username = ? LIMIT 1`,
-      [username]
-    );
-
-    if (rows.length === 0) return res.status(401).json({ error: "User not found" });
-
-    const user = rows[0];
-    const dbPass = String(user.password ?? "");
-
-    // รองรับทั้ง plain-text และ bcrypt (migration)
-    let passOK = false;
-    if (dbPass.startsWith("$2")) {
-      passOK = await bcrypt.compare(password, dbPass);
-    } else {
-      passOK = password === dbPass;
-      if (passOK) {
-        const newHash = await bcrypt.hash(password, 10);
-        await db.query(
-          "UPDATE tbl_users SET password = ?, updated_at = NOW() WHERE id = ?",
-          [newHash, user.id]
-        );
-      }
-    }
-
-    if (!passOK) return res.status(401).json({ error: "Invalid password" });
-
-    const token = jwt.sign(
-      {
-        role: "user",
-        id: user.id,
-        fullname: user.fullname,
-        lastname: user.lastname,
-        status: user.status,
-      },
-      SECRET_KEY,
-      { expiresIn: "1h" }
-    );
-
-    const { password: _omit, ...safeUser } = user;
-    res.json({ message: "Login successful", token, user: safeUser });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Login failed", code: err.code, sqlMessage: err.sqlMessage });
-  }
-});
-
-// UPDATE user (protected + check username dupes)
-app.put("/users/:id", verifyToken, async (req, res) => {
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   put:
+ *     tags: [Users]
+ *     summary: Update user by id (protected)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, example: 1 }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateUserRequest'
+ *     responses:
+ *       200:
+ *         description: OK
+ *       409:
+ *         description: Duplicate username
+ */
+router.put("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: "Invalid id" });
-  }
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
 
   const firstname = req.body.firstname !== undefined ? String(req.body.firstname).trim() : undefined;
   const fullname  = req.body.fullname  !== undefined ? String(req.body.fullname).trim()  : undefined;
   const lastname  = req.body.lastname  !== undefined ? String(req.body.lastname).trim()  : undefined;
   const username  = req.body.username  !== undefined ? String(req.body.username).trim()  : undefined;
-  const status    = req.body.status    !== undefined ? req.body.status : undefined;
+  const status    = req.body.status    !== undefined ? String(req.body.status) : undefined;
   const password  = req.body.password  !== undefined ? String(req.body.password) : undefined;
 
   try {
@@ -203,29 +243,40 @@ app.put("/users/:id", verifyToken, async (req, res) => {
 
     res.json({ message: "User updated successfully" });
   } catch (err) {
-    console.error("PUT /users/:id error:", err);
-    res.status(500).json({ error: "Update failed", code: err.code, sqlMessage: err.sqlMessage });
+    console.error("PUT /api/users/:id error:", err);
+    res.status(500).json({ error: "Update failed" });
   }
 });
 
-// DELETE user (protected)
-app.delete("/users/:id", verifyToken, async (req, res) => {
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   delete:
+ *     tags: [Users]
+ *     summary: Delete user by id (protected)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: OK
+ */
+router.delete("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id <= 0) {
-    return res.status(400).json({ error: "Invalid id" });
-  }
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: "Invalid id" });
 
   try {
     const [result] = await db.query("DELETE FROM tbl_users WHERE id = ?", [id]);
     if (result.affectedRows === 0) return res.status(404).json({ message: "User not found" });
     res.json({ message: "User deleted successfully" });
   } catch (err) {
-    console.error("DELETE /users/:id error:", err);
-    res.status(500).json({ error: "Delete failed", code: err.code, sqlMessage: err.sqlMessage });
+    console.error("DELETE /api/users/:id error:", err);
+    res.status(500).json({ error: "Delete failed" });
   }
 });
 
-// LOGOUT (JWT stateless)
-app.post("/logout", verifyToken, (req, res) => {
-  res.json({ message: "Logged out" });
-});
+module.exports = router;
