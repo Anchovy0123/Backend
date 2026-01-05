@@ -2,6 +2,7 @@ require("dotenv").config({
   path:
     process.env.DOTENV_CONFIG_PATH ||
     (process.env.NODE_ENV === "production" ? ".env.production" : ".env.local"),
+  override: true, // ✅ สำคัญ: ให้ทับ env ที่ค้างอยู่
 });
 
 const express = require("express");
