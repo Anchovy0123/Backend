@@ -1,29 +1,22 @@
+// api/index.js
 require("dotenv").config({
   path:
     process.env.DOTENV_CONFIG_PATH ||
     (process.env.NODE_ENV === "production" ? ".env.production" : ".env.local"),
-  override: true, // ✅ สำคัญ: ให้ทับ env ที่ค้างอยู่
+  override: true,
 });
 
 const express = require("express");
 const cors = require("cors");
-const db = require("./config/db");
-const { swaggerUi, specs } = require("./swagger");
+
+const db = require("../config/db");      // เดิมคุณอยู่ ./config/db
+const { swaggerUi, specs } = require("../swagger");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-/**
- * @openapi
- * /ping:
- *   get:
- *     tags: [Health]
- *     summary: Ping database (returns server time)
- *     responses:
- *       200:
- *         description: OK
- */
+// ---- Health ----
 app.get("/ping", async (req, res) => {
   try {
     const [rows] = await db.query("SELECT NOW() AS now");
@@ -34,12 +27,13 @@ app.get("/ping", async (req, res) => {
   }
 });
 
-// Routes
-app.use("/api/users", require("./routes/users"));
-app.use("/api/login", require("./routes/login"));
+// ---- Routes ----
+app.use("/api/users", require("../routes/users"));
+app.use("/api/login", require("../routes/login"));
 
-// Swagger UI + JSON spec export
+// ---- Swagger ----
 app.get("/api-docs.json", (req, res) => res.json(specs));
+
 app.use(
   "/api-docs",
   swaggerUi.serve,
@@ -49,8 +43,9 @@ app.use(
   })
 );
 
+// (optional) init schema แบบไม่บล็อก swagger
 async function initializeSchema() {
-  const createUsersTableSQL = `
+  const sql = `
     CREATE TABLE IF NOT EXISTS tbl_users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       firstname VARCHAR(100),
@@ -63,25 +58,31 @@ async function initializeSchema() {
       updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `;
-  await db.query(createUsersTableSQL);
+  await db.query(sql);
 }
 
-async function startServer() {
-  const PORT = process.env.PORT || 3000;
-
-  // ✅ แนะนำ: ให้ server ติดแม้ DB จะมีปัญหา (เพื่อเข้า Swagger ได้ก่อน)
+async function startLocal() {
   try {
-    await initializeSchema();
-    console.log("DB connected & schema ready");
-  } catch (err) {
-    console.error("⚠️ DB init failed (server will still start):", err.message);
-  }
+    try {
+      await initializeSchema();
+      console.log("DB connected & schema ready");
+    } catch (e) {
+      console.warn("⚠️ DB init failed (server will still start):", e.message);
+    }
 
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Swagger UI: http://localhost:${PORT}/api-docs`);
-    console.log(`OpenAPI JSON: http://localhost:${PORT}/api-docs.json`);
-  });
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Swagger UI: http://localhost:${PORT}/api-docs`);
+      console.log(`OpenAPI JSON: http://localhost:${PORT}/api-docs.json`);
+    });
+  } catch (err) {
+    console.error("Server initialization failed:", err);
+    process.exit(1);
+  }
 }
 
-startServer();
+// ✅ สำคัญ: ถ้ารันเอง local -> listen()
+// ✅ ถ้า Vercel เรียก -> export app (ห้าม listen)
+if (require.main === module) startLocal();
+module.exports = app;
