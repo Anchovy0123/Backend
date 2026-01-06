@@ -16,6 +16,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ---- Swagger entry (Vercel root) ----
+app.get("/", (req, res) => res.redirect("/api-docs"));
+
 // ---- Health ----
 app.get("/ping", async (req, res) => {
   try {
