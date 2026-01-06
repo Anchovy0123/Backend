@@ -9,7 +9,7 @@ require("dotenv").config({
 const express = require("express");
 const cors = require("cors");
 
-const db = require("../config/db");      // เดิมคุณอยู่ ./config/db
+const db = require("../config/db");
 const { swaggerUi, specs } = require("../swagger");
 
 const app = express();
