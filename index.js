@@ -17,7 +17,65 @@ app.use(cors());
 app.use(express.json());
 
 // ---- Swagger entry (Vercel root) ----
-app.get("/", (req, res) => res.redirect("/api-docs"));
+app.get("/", (req, res) => {
+  res.type("html").send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Backend API</title>
+    <style>
+      :root { color-scheme: light; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+        background: linear-gradient(140deg, #f8fafc, #e2e8f0);
+        color: #0f172a;
+      }
+      .wrap {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 28px 32px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        max-width: 520px;
+        width: 100%;
+      }
+      h1 { margin: 0 0 8px; font-size: 24px; }
+      p { margin: 0 0 18px; color: #475569; }
+      .btn {
+        display: inline-block;
+        background: #0f172a;
+        color: #ffffff;
+        padding: 12px 18px;
+        border-radius: 10px;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .links { margin-top: 12px; font-size: 14px; }
+      .links a { color: #0f172a; text-decoration: none; margin-right: 12px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <h1>Backend API</h1>
+        <p>Use the button below to open the Swagger UI.</p>
+        <a class="btn" href="/api-docs">Open API Docs</a>
+        <div class="links">
+          <a href="/api-docs.json">OpenAPI JSON</a>
+          <a href="/ping">Health Check</a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`);
+});
 
 // ---- Health ----
 app.get("/ping", async (req, res) => {

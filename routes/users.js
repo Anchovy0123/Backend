@@ -42,8 +42,9 @@ const verifyToken = require("../middleware/auth");
  *         status: { type: string }
  *     ErrorResponse:
  *       type: object
+ *       required: [error]
  *       properties:
- *         error: { type: string }
+ *         error: { type: string, example: "Username is required" }
  */
 
 /**
@@ -63,8 +64,22 @@ const verifyToken = require("../middleware/auth");
  *         description: Created
  *       400:
  *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
  *         description: Duplicate username
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/", async (req, res) => {
   const firstname = String(req.body?.firstname ?? "").trim();
@@ -115,6 +130,24 @@ router.post("/", async (req, res) => {
  *     responses:
  *       200:
  *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/", verifyToken, async (req, res) => {
   try {
@@ -146,8 +179,34 @@ router.get("/", verifyToken, async (req, res) => {
  *     responses:
  *       200:
  *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Invalid id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.get("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
@@ -160,7 +219,7 @@ router.get("/:id", verifyToken, async (req, res) => {
        WHERE id = ? LIMIT 1`,
       [id]
     );
-    if (rows.length === 0) return res.status(404).json({ message: "User not found" });
+    if (rows.length === 0) return res.status(404).json({ error: "User not found" });
     res.json(rows[0]);
   } catch (err) {
     console.error("GET /api/users/:id error:", err);
@@ -190,8 +249,42 @@ router.get("/:id", verifyToken, async (req, res) => {
  *     responses:
  *       200:
  *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: "User updated successfully" }
+ *       400:
+ *         description: Invalid input
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       409:
  *         description: Duplicate username
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
@@ -239,7 +332,7 @@ router.put("/:id", verifyToken, async (req, res) => {
     params.push(id);
 
     const [result] = await db.query(sql, params);
-    if (result.affectedRows === 0) return res.status(404).json({ message: "User not found" });
+    if (result.affectedRows === 0) return res.status(404).json({ error: "User not found" });
 
     res.json({ message: "User updated successfully" });
   } catch (err) {
@@ -264,6 +357,36 @@ router.put("/:id", verifyToken, async (req, res) => {
  *     responses:
  *       200:
  *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: "User deleted successfully" }
+ *       400:
+ *         description: Invalid id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete("/:id", verifyToken, async (req, res) => {
   const id = Number(req.params.id);
@@ -271,7 +394,7 @@ router.delete("/:id", verifyToken, async (req, res) => {
 
   try {
     const [result] = await db.query("DELETE FROM tbl_users WHERE id = ?", [id]);
-    if (result.affectedRows === 0) return res.status(404).json({ message: "User not found" });
+    if (result.affectedRows === 0) return res.status(404).json({ error: "User not found" });
     res.json({ message: "User deleted successfully" });
   } catch (err) {
     console.error("DELETE /api/users/:id error:", err);
