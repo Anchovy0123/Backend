@@ -34,10 +34,14 @@ app.use("/api/login", require("./routes/login"));
 // ---- Swagger ----
 app.get("/api-docs.json", (req, res) => res.json(specs));
 
+const CSS_URL =
+  "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui.min.css";
+
 app.use(
   "/api-docs",
   swaggerUi.serve,
   swaggerUi.setup(specs, {
+    customCssUrl: CSS_URL,
     explorer: true,
     swaggerOptions: { persistAuthorization: true },
   })
