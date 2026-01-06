@@ -42,6 +42,10 @@ app.use(
   swaggerUi.serve,
   swaggerUi.setup(specs, {
     customCssUrl: CSS_URL,
+    customJs: [
+      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui-bundle.js",
+      "https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0/swagger-ui-standalone-preset.js",
+    ],
     explorer: true,
     swaggerOptions: { persistAuthorization: true },
   })
