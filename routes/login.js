@@ -33,7 +33,7 @@ const verifyToken = require("../middleware/auth");
 
 /**
  * @openapi
- * /api/login:
+ * /login:
  *   post:
  *     tags: [Auth]
  *     summary: Login (tbl_users) and get JWT
@@ -133,7 +133,7 @@ router.post("/", async (req, res) => {
 
 /**
  * @openapi
- * /api/logout:
+ * /logout:
  *   post:
  *     tags: [Auth]
  *     summary: Logout (JWT stateless) - just a test endpoint
