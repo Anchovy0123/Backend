@@ -9,8 +9,8 @@ require("dotenv").config({
 const express = require("express");
 const cors = require("cors");
 
-const db = require("../config/db");
-const { swaggerUi, specs } = require("../swagger");
+const db = require("./config/db");
+const { swaggerUi, specs } = require("./swagger");
 
 const app = express();
 app.use(cors());
@@ -28,8 +28,8 @@ app.get("/ping", async (req, res) => {
 });
 
 // ---- Routes ----
-app.use("/api/users", require("../routes/users"));
-app.use("/api/login", require("../routes/login"));
+app.use("/api/users", require("./routes/users"));
+app.use("/api/login", require("./routes/login"));
 
 // ---- Swagger ----
 app.get("/api-docs.json", (req, res) => res.json(specs));

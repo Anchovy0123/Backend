@@ -5,8 +5,8 @@
   "private": true,
   "main": "index.js",
 "scripts": {
-    "dev": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun --watch ./api/index.js",
-    "start": "NODE_ENV=production DOTENV_CONFIG_PATH=.env.production bun ./api/index.js",
+    "dev": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun --watch index.js",
+    "start": "NODE_ENV=production DOTENV_CONFIG_PATH=.env.production bun index.js",
     "typecheck": "tsc --noEmit",
     "export:openapi": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun scripts/export-openapi.js"
   },
