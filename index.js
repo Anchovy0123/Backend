@@ -13,7 +13,35 @@ const db = require("./config/db");
 const { swaggerUi, specs } = require("./swagger");
 
 const app = express();
-app.use(cors());
+const rawAllowedOrigins = [
+  process.env.FRONTEND_ORIGIN,
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_ORIGINS,
+]
+  .filter(Boolean)
+  .flatMap((value) => value.split(","))
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set(rawAllowedOrigins);
+const allowedOriginPatterns = [/^https:\/\/.+\.vercel\.app$/];
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const isAllowed =
+      allowedOrigins.has(origin) ||
+      allowedOriginPatterns.some((pattern) => pattern.test(origin));
+    return callback(null, isAllowed);
+  },
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+  maxAge: 86400,
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 // ---- Swagger entry (Vercel root) ----
