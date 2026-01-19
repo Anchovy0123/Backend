@@ -5,6 +5,96 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const verifyToken = require("../middleware/auth");
 
+const sendError = (res, status, message) =>
+  res.status(status).json({ error: message, message });
+
+/**
+ * @openapi
+ * /api/auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new user (tbl_users)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateUserRequest'
+ *     responses:
+ *       201:
+ *         description: Created
+ *       400:
+ *         description: Bad request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       409:
+ *         description: Duplicate username
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+async function handleRegister(req, res) {
+  const firstname = String(req.body?.firstname ?? "").trim();
+  const fullname = String(req.body?.fullname ?? "").trim();
+  const lastname = String(req.body?.lastname ?? "").trim();
+  const username = String(req.body?.username ?? "").trim();
+  const password = String(req.body?.password ?? "");
+  const address = String(req.body?.address ?? "").trim();
+  const sex = String(req.body?.sex ?? "").trim();
+  const birthday = String(req.body?.birthday ?? "").trim();
+
+  try {
+    if (!username) return sendError(res, 400, "Username is required");
+    if (!password) return sendError(res, 400, "Password is required");
+
+    const [dupes] = await db.query(
+      "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
+      [username]
+    );
+    if (dupes.length > 0) return sendError(res, 409, "Username already exists");
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const [result] = await db.query(
+      `INSERT INTO tbl_users (firstname, fullname, lastname, username, password, address, sex, birthday)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        firstname || null,
+        fullname || null,
+        lastname || null,
+        username,
+        hashedPassword,
+        address || null,
+        sex || null,
+        birthday || null,
+      ]
+    );
+
+    return res.status(201).json({
+      id: result.insertId,
+      firstname: firstname || "",
+      fullname: fullname || "",
+      lastname: lastname || "",
+      username,
+      address: address || "",
+      sex: sex || "",
+      birthday: birthday || "",
+    });
+  } catch (err) {
+    console.error("POST /api/auth/register error:", err);
+    return sendError(res, 500, "Insert failed");
+  }
+}
+
 /**
  * @openapi
  * tags:
@@ -33,7 +123,7 @@ const verifyToken = require("../middleware/auth");
 
 /**
  * @openapi
- * /login:
+ * /api/auth/login:
  *   post:
  *     tags: [Auth]
  *     summary: Login (tbl_users) and get JWT
@@ -69,13 +159,13 @@ const verifyToken = require("../middleware/auth");
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", async (req, res) => {
+async function handleLogin(req, res) {
   try {
     const username = String(req.body?.username ?? "").trim();
     const password = String(req.body?.password ?? "");
 
     if (!username || !password) {
-      return res.status(400).json({ error: "username/password is required" });
+      return sendError(res, 400, "username/password is required");
     }
 
     const [rows] = await db.query(
@@ -85,7 +175,7 @@ router.post("/", async (req, res) => {
       [username]
     );
 
-    if (rows.length === 0) return res.status(401).json({ error: "User not found" });
+    if (rows.length === 0) return sendError(res, 401, "User not found");
 
     const user = rows[0];
     const dbPass = String(user.password ?? "");
@@ -106,10 +196,10 @@ router.post("/", async (req, res) => {
       }
     }
 
-    if (!passOK) return res.status(401).json({ error: "Invalid password" });
+    if (!passOK) return sendError(res, 401, "Invalid password");
 
     const SECRET_KEY = process.env.SECRET_KEY || process.env.JWT_SECRET;
-    if (!SECRET_KEY) return res.status(500).json({ error: "Server missing SECRET_KEY" });
+    if (!SECRET_KEY) return sendError(res, 500, "Server missing SECRET_KEY");
 
     const token = jwt.sign(
       {
@@ -126,14 +216,18 @@ router.post("/", async (req, res) => {
     const { password: _omit, ...safeUser } = user;
     res.json({ message: "Login successful", token, user: safeUser });
   } catch (err) {
-    console.error("POST /api/login error:", err);
-    res.status(500).json({ error: "Login failed" });
+    console.error("POST /api/auth/login error:", err);
+    sendError(res, 500, "Login failed");
   }
-});
+}
+
+router.post("/register", handleRegister);
+router.post("/", handleLogin);
+router.post("/login", handleLogin);
 
 /**
  * @openapi
- * /logout:
+ * /api/auth/logout:
  *   post:
  *     tags: [Auth]
  *     summary: Logout (JWT stateless) - just a test endpoint

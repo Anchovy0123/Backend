@@ -1,4 +1,4 @@
-// api/index.js
+// /index.js
 require("dotenv").config({
   path:
     process.env.DOTENV_CONFIG_PATH ||
@@ -90,7 +90,10 @@ app.get("/ping", async (req, res) => {
 
 // ---- Routes ----
 app.use("/api/users", require("./routes/users"));
-app.use("/api/login", require("./routes/login"));
+
+const loginRouter = require("./routes/login");
+app.use("/api/login", loginRouter);
+app.use("/api/auth", loginRouter);
 
 // ---- Swagger ----
 app.get("/api-docs.json", (req, res) => res.json(specs));
@@ -122,12 +125,31 @@ async function initializeSchema() {
       lastname VARCHAR(100),
       username VARCHAR(100) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
+      address TEXT,
+      sex VARCHAR(20),
+      birthday DATE,
       status VARCHAR(20) NOT NULL DEFAULT 'active',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `;
   await db.query(sql);
+
+  const columnAdds = [
+    { name: "address", sql: "ALTER TABLE tbl_users ADD COLUMN address TEXT" },
+    { name: "sex", sql: "ALTER TABLE tbl_users ADD COLUMN sex VARCHAR(20)" },
+    { name: "birthday", sql: "ALTER TABLE tbl_users ADD COLUMN birthday DATE" },
+  ];
+
+  for (const column of columnAdds) {
+    try {
+      await db.query(column.sql);
+    } catch (err) {
+      if (err && err.code !== "ER_DUP_FIELDNAME") {
+        throw err;
+      }
+    }
+  }
 }
 
 async function startLocal() {
