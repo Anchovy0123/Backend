@@ -118,6 +118,9 @@ app.get("/ping", async (req, res) => {
 // ---- Routes ----
 app.use("/api/users", require("./routes/users"));
 
+const authRouter = require("./routes/auth");
+app.use("/api/auth", authRouter);
+
 const loginRouter = require("./routes/login");
 app.use("/api/login", loginRouter);
 app.use("/api/auth", loginRouter);
