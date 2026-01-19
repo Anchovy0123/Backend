@@ -5,8 +5,13 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const verifyToken = require("../middleware/auth");
 
-const sendError = (res, status, message) =>
-  res.status(status).json({ error: message, message });
+const sendError = (res, status, message, details) => {
+  const payload = { error: message, message };
+  if (details && typeof details === "object") {
+    payload.details = details;
+  }
+  return res.status(status).json(payload);
+};
 
 /**
  * @openapi
@@ -43,24 +48,68 @@ const sendError = (res, status, message) =>
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 async function handleRegister(req, res) {
-  const firstname = String(req.body?.firstname ?? "").trim();
-  const fullname = String(req.body?.fullname ?? "").trim();
-  const lastname = String(req.body?.lastname ?? "").trim();
-  const username = String(req.body?.username ?? "").trim();
-  const password = String(req.body?.password ?? "");
-  const address = String(req.body?.address ?? "").trim();
-  const sex = String(req.body?.sex ?? "").trim();
-  const birthday = String(req.body?.birthday ?? "").trim();
+  const errors = {};
+  const body = req.body ?? {};
+
+  const readString = (value, field, options = {}) => {
+    if (value === undefined || value === null) return "";
+    if (typeof value !== "string" && typeof value !== "number") {
+      errors[field] = "Must be a string";
+      return "";
+    }
+    let text = String(value);
+    if (options.trim) text = text.trim();
+    if (options.max && text.length > options.max) {
+      errors[field] = `Must be at most ${options.max} characters`;
+    }
+    return text;
+  };
+
+  const firstname = readString(body.firstname, "firstname", { trim: true, max: 100 });
+  const fullname = readString(body.fullname, "fullname", { trim: true, max: 255 });
+  const lastname = readString(body.lastname, "lastname", { trim: true, max: 100 });
+  const username = readString(body.username, "username", { trim: true, max: 100 });
+  const password = readString(body.password, "password");
+  const address = readString(body.address, "address", { trim: true });
+  const sex = readString(body.sex, "sex", { trim: true, max: 20 });
+  const birthday = readString(body.birthday, "birthday", { trim: true, max: 10 });
 
   try {
-    if (!username) return sendError(res, 400, "Username is required");
-    if (!password) return sendError(res, 400, "Password is required");
+    if (!username) errors.username = "Username is required";
+    if (!password) errors.password = "Password is required";
+
+    if (birthday) {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthday);
+      if (!match) {
+        errors.birthday = "Birthday must be in YYYY-MM-DD format";
+      } else {
+        const year = Number(match[1]);
+        const month = Number(match[2]);
+        const day = Number(match[3]);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        const isValid =
+          parsed.getUTCFullYear() === year &&
+          parsed.getUTCMonth() === month - 1 &&
+          parsed.getUTCDate() === day;
+        if (!isValid) {
+          errors.birthday = "Birthday must be a valid date";
+        }
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return sendError(res, 400, "Validation failed", { fields: errors });
+    }
 
     const [dupes] = await db.query(
       "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
       [username]
     );
-    if (dupes.length > 0) return sendError(res, 409, "Username already exists");
+    if (dupes.length > 0) {
+      return sendError(res, 409, "Username already exists", {
+        fields: { username: "Username already exists" },
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
