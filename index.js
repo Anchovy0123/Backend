@@ -13,7 +13,9 @@ const db = require("./config/db");
 const { swaggerUi, specs } = require("./swagger");
 
 const app = express();
+const defaultAllowedOrigins = ["https://frontend-cmtc-010.vercel.app"];
 const rawAllowedOrigins = [
+  ...defaultAllowedOrigins,
   process.env.FRONTEND_ORIGIN,
   process.env.FRONTEND_URL,
   process.env.FRONTEND_ORIGINS,
