@@ -21,40 +21,6 @@ const sendError = (res, status, message) => {
   res.status(status).json({ error: message });
 };
 
-router.post("/register", async (req, res) => {
-  try {
-    const email = String(req.body?.email ?? "").trim().toLowerCase();
-    const password = String(req.body?.password ?? "");
-
-    if (!email || !password) {
-      return sendError(res, 400, "email and password are required");
-    }
-
-    const [existing] = await db.query(
-      "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
-      [email]
-    );
-    if (existing.length > 0) {
-      return sendError(res, 400, "Email already exists");
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const [result] = await db.query(
-      "INSERT INTO tbl_users (username, password) VALUES (?, ?)",
-      [email, hashedPassword]
-    );
-
-    return res.status(201).json({
-      ok: true,
-      user: { id: result.insertId, email },
-    });
-  } catch (err) {
-    console.error("POST /api/auth/register error:", err);
-    return sendError(res, 500, "Register failed");
-  }
-});
-
 router.post("/login", async (req, res) => {
   try {
     const email = String(req.body?.email ?? "").trim().toLowerCase();
@@ -92,7 +58,7 @@ router.post("/login", async (req, res) => {
     res.cookie(COOKIE_NAME, token, getCookieOptions());
     return res.json({ ok: true, user: { id: user.id, email: user.username } });
   } catch (err) {
-    console.error("POST /api/auth/login error:", err);
+    console.error("POST /login error:", err);
     return sendError(res, 500, "Login failed");
   }
 });
@@ -100,24 +66,6 @@ router.post("/login", async (req, res) => {
 router.post("/logout", authMiddleware, (req, res) => {
   res.clearCookie(COOKIE_NAME, getCookieOptions());
   res.json({ ok: true });
-});
-
-router.get("/me", authMiddleware, async (req, res) => {
-  try {
-    const [rows] = await db.query(
-      "SELECT id, username FROM tbl_users WHERE id = ? LIMIT 1",
-      [req.user.id]
-    );
-    if (rows.length === 0) {
-      return sendError(res, 401, "Unauthorized");
-    }
-
-    const user = rows[0];
-    return res.json({ ok: true, user: { id: user.id, email: user.username } });
-  } catch (err) {
-    console.error("GET /api/auth/me error:", err);
-    return sendError(res, 500, "Failed to load user");
-  }
 });
 
 module.exports = router;

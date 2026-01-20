@@ -4,11 +4,11 @@
   "description": "Express + MySQL API running on Bun with separate local/production envs.",
   "private": true,
   "main": "index.js",
-"scripts": {
-    "dev": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun --watch index.js",
-    "start": "NODE_ENV=production DOTENV_CONFIG_PATH=.env.production bun index.js",
+  "scripts": {
+    "dev": "NODE_ENV=development DOTENV_CONFIG_PATH=.env bun --watch index.js",
+    "start": "NODE_ENV=production DOTENV_CONFIG_PATH=.env bun index.js",
     "typecheck": "tsc --noEmit",
-    "export:openapi": "NODE_ENV=development DOTENV_CONFIG_PATH=.env.local bun scripts/export-openapi.js"
+    "export:openapi": "NODE_ENV=development DOTENV_CONFIG_PATH=.env bun scripts/export-openapi.js"
   },
   "engines": {
     "bun": ">=1.0.0",

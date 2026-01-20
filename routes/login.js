@@ -15,137 +15,6 @@ const sendError = (res, status, message, details) => {
 
 /**
  * @openapi
- * /api/auth/register:
- *   post:
- *     tags: [Auth]
- *     summary: Register a new user (tbl_users)
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateUserRequest'
- *     responses:
- *       201:
- *         description: Created
- *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       409:
- *         description: Duplicate username
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       500:
- *         description: Server error
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
-async function handleRegister(req, res) {
-  const errors = {};
-  const body = req.body ?? {};
-
-  const readString = (value, field, options = {}) => {
-    if (value === undefined || value === null) return "";
-    if (typeof value !== "string" && typeof value !== "number") {
-      errors[field] = "Must be a string";
-      return "";
-    }
-    let text = String(value);
-    if (options.trim) text = text.trim();
-    if (options.max && text.length > options.max) {
-      errors[field] = `Must be at most ${options.max} characters`;
-    }
-    return text;
-  };
-
-  const firstname = readString(body.firstname, "firstname", { trim: true, max: 100 });
-  const fullname = readString(body.fullname, "fullname", { trim: true, max: 255 });
-  const lastname = readString(body.lastname, "lastname", { trim: true, max: 100 });
-  const username = readString(body.username, "username", { trim: true, max: 100 });
-  const password = readString(body.password, "password");
-  const address = readString(body.address, "address", { trim: true });
-  const sex = readString(body.sex, "sex", { trim: true, max: 20 });
-  const birthday = readString(body.birthday, "birthday", { trim: true, max: 10 });
-
-  try {
-    if (!username) errors.username = "Username is required";
-    if (!password) errors.password = "Password is required";
-
-    if (birthday) {
-      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthday);
-      if (!match) {
-        errors.birthday = "Birthday must be in YYYY-MM-DD format";
-      } else {
-        const year = Number(match[1]);
-        const month = Number(match[2]);
-        const day = Number(match[3]);
-        const parsed = new Date(Date.UTC(year, month - 1, day));
-        const isValid =
-          parsed.getUTCFullYear() === year &&
-          parsed.getUTCMonth() === month - 1 &&
-          parsed.getUTCDate() === day;
-        if (!isValid) {
-          errors.birthday = "Birthday must be a valid date";
-        }
-      }
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return sendError(res, 400, "Validation failed", { fields: errors });
-    }
-
-    const [dupes] = await db.query(
-      "SELECT id FROM tbl_users WHERE username = ? LIMIT 1",
-      [username]
-    );
-    if (dupes.length > 0) {
-      return sendError(res, 409, "Username already exists", {
-        fields: { username: "Username already exists" },
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const [result] = await db.query(
-      `INSERT INTO tbl_users (firstname, fullname, lastname, username, password, address, sex, birthday)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        firstname || null,
-        fullname || null,
-        lastname || null,
-        username,
-        hashedPassword,
-        address || null,
-        sex || null,
-        birthday || null,
-      ]
-    );
-
-    return res.status(201).json({
-      id: result.insertId,
-      firstname: firstname || "",
-      fullname: fullname || "",
-      lastname: lastname || "",
-      username,
-      address: address || "",
-      sex: sex || "",
-      birthday: birthday || "",
-    });
-  } catch (err) {
-    console.error("POST /api/auth/register error:", err);
-    return sendError(res, 500, "Insert failed");
-  }
-}
-
-/**
- * @openapi
  * tags:
  *   - name: Auth
  *     description: Login/Logout
@@ -172,7 +41,7 @@ async function handleRegister(req, res) {
 
 /**
  * @openapi
- * /api/auth/login:
+ * /login:
  *   post:
  *     tags: [Auth]
  *     summary: Login (tbl_users) and get JWT
@@ -265,18 +134,16 @@ async function handleLogin(req, res) {
     const { password: _omit, ...safeUser } = user;
     res.json({ message: "Login successful", token, user: safeUser });
   } catch (err) {
-    console.error("POST /api/auth/login error:", err);
+    console.error("POST /login error:", err);
     sendError(res, 500, "Login failed");
   }
 }
 
-router.post("/register", handleRegister);
-router.post("/", handleLogin);
 router.post("/login", handleLogin);
 
 /**
  * @openapi
- * /api/auth/logout:
+ * /logout:
  *   post:
  *     tags: [Auth]
  *     summary: Logout (JWT stateless) - just a test endpoint
