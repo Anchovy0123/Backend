@@ -27,6 +27,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/", authRoutes);
 app.use("/api/users", usersRoutes);
+app.use("/users", usersRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
